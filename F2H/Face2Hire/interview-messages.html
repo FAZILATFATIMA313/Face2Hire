@@ -6,13 +6,59 @@
     <title>Interview Messages - Face2Hire</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
-        .message-bubble { max-width: 70%; margin: 12px 0; }
-        .ai-message { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border-radius: 20px 20px 5px 20px; margin-left: auto; }
-        .user-message { background: white; color: #1e293b; border-radius: 20px 20px 20px 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .message-time { font-size: 11px; opacity: 0.7; margin-top: 4px; }
-        .status-indicator { position: fixed; top: 20px; right: 20px; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+<style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+        #interaction-messages { transition: all 0.3s ease; }
+        #interaction-messages.hidden { transform: translateX(-400px); opacity: 0; }
+        .message-bubble { 
+            max-width: 85%; 
+            margin: 8px 0; 
+            padding: 12px 16px;
+            line-height: 1.4;
+        }
+        .ai-message { 
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8); 
+            color: white; 
+            border-radius: 18px 18px 4px 18px; 
+            margin-left: auto;
+            font-weight: 500;
+        }
+        .user-message { 
+            background: white; 
+            color: #1e293b; 
+            border-radius: 18px 18px 18px 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-right: auto;
+        }
+        .message-time { 
+            font-size: 11px; 
+            opacity: 0.7; 
+            margin-top: 4px; 
+            text-align: right;
+        }
+        .status-indicator { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            font-weight: 600; 
+        }
+        .metrics-bar {
+            margin-top: 8px;
+        }
+        .confidence-bar {
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            height: 4px;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body class="min-h-screen p-8">
@@ -34,10 +80,21 @@
     </div>
 
     <!-- Messages Container -->
-    <div id="interaction-messages" class="max-w-4xl mx-auto space-y-4 interaction-messages">
-        <!-- Messages loaded dynamically from sessionStorage/backend -->
-        <div class="text-center text-gray-500 py-12">
-            Loading your interview conversation...
+<div id="interaction-messages" class="fixed bottom-8 left-8 w-96 max-h-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden interaction-messages z-50">
+        <div class="p-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold text-lg flex items-center gap-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+            </svg>
+            Interview Chat
+            <button onclick="toggleMessages()" class="ml-auto text-white/80 hover:text-white p-1 rounded hover:bg-white/20" title="Toggle chat" aria-label="Toggle chat panel">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-4 space-y-3 max-h-72 overflow-y-auto bg-gray-50">
+            <!-- Messages loaded dynamically -->
+            <div class="text-gray-500 text-sm text-center py-8">Loading conversation...</div>
         </div>
     </div>
 
@@ -53,6 +110,51 @@
             }
         });
 
+        function loadMessages(data) {
+            const container = document.querySelector('#interaction-messages .max-h-72');
+            if (!container) return;
+            container.innerHTML = '';
+
+            // Header context
+            addMessage(`<strong>Interview:</strong> ${data.interviewData?.selectedRole || 'Practice'} (${data.completedQuestions}/${data.totalQuestions})`, 'system');
+            
+            // Q&A pairs
+            data.responses.forEach((response, index) => {
+                // Question (AI)
+                addMessage(`Q${index+1}: ${data.questions[index]?.text?.substring(0, 200)}${data.questions[index]?.text.length > 200 ? '...' : ''}`, 'ai');
+                
+                // User response
+                const time = new Date(response.timestamp).toLocaleString();
+                let responseText = response.response || '[No response]';
+                if (responseText.length > 150) responseText = responseText.substring(0, 150) + '...';
+                addMessage(responseText, 'user', time);
+                
+                // Metrics
+                if (response.metrics) {
+                    const confidence = Math.round((response.metrics.confidence || 0) * 100);
+                    const words = response.metrics.wordCount || 0;
+                    addMessage(`
+                        <div class="text-xs space-y-1">
+                            <div>Confidence: <span class="font-semibold">${confidence}%</span></div>
+                            <div>Words: ${words} | Fillers: ${response.metrics.fillerWords || 0}</div>
+                            <div class="metrics-bar">
+                                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div class="confidence-bar" style="width: ${confidence}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `, 'ai-feedback');
+                }
+            });
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.toggleMessages = () => {
+            const panel = document.getElementById('interaction-messages');
+            panel.classList.toggle('hidden');
+        };
+        
         function loadMessages(data) {
             const container = document.getElementById('interaction-messages');
             container.innerHTML = '';
