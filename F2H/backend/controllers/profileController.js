@@ -597,15 +597,16 @@ export const getDashboard = async (req, res) => {
       })
     };
 
-    // Demo data if no real data (bit of demo, non-altering)
+// Demo data (technical/behavioral/communication/overall to match frontend)
     const hasData = interviewStats.some(stat => stat.count > 0);
     if (!hasData) {
-      // Demo: ramping scores last 7 days
-      performanceData.overall = [65, 72, 78, 82, 85, 88, 90];
-      performanceData.communication = [70, 75, 80, 83, 86, 89, 92];
-      performanceData.content = [62, 70, 76, 81, 84, 87, 89];
-      performanceData.confidence = [68, 73, 78, 82, 85, 88, 91];
+      performanceData.dates = ['2024-03-07', '2024-03-08', '2024-03-09', '2024-03-10', '2024-03-11', '2024-03-12', '2024-03-13'];
+      performanceData.technical = [65, 72, 78, 82, 85, 88, 90];
+      performanceData.behavioral = [70, 75, 80, 83, 86, 89, 92];
+      performanceData.communication = [62, 70, 76, 81, 84, 87, 89];
+      performanceData.overall = [68, 73, 78, 82, 85, 88, 91];
     }
+
 
     // Recent activity (last 5 completed)
     const recentInterviews = await Interview.find({
